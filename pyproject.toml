@@ -1,0 +1,64 @@
+[project]
+name = "news-rag"
+version = "0.1.0"
+description = "Fetch NewsAPI articles for today and yesterday into PostgreSQL."
+authors = [
+    { name = "News RAG" }
+]
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "newsapi-python==0.2.7",
+    "psycopg[binary]==3.2.3",
+    "psycopg-pool (>=3.2.0)",
+    "python-dotenv (>=1.1.0,<2.0.0)",
+    "fastapi (>=0.139.0,<0.140.0)",
+    "uvicorn[standard] (>=0.50.0,<0.51.0)",
+    "pydantic (>=2.13.4,<3.0.0)",
+    "anthropic[vertex] (>=0.116.0,<0.117.0)",
+    "boto3 (>=1.43.40,<2.0.0)",
+    "google-auth (>=2.0.0)",
+    "fastmcp (>=3.4.2,<4.0.0)"
+]
+
+[project.scripts]
+news-ingest = "news_ingest.ingest:main"
+news-ingest-100 = "news_ingest.hundred_ingest:main"
+currents-ingest = "news_ingest.currents_ingest:main"
+gnews-ingest = "news_ingest.gnews_ingest:main"
+nytimes-ingest = "news_ingest.nytimes_ingest:main"
+newsdata-ingest = "news_ingest.newsdata_ingest:main"
+thenewsapi-ingest = "news_ingest.thenewsapi_ingest:main"
+process-embeddings = "news_ingest.ml.embedding_worker:main"
+process-ner = "news_ingest.ml.ner_worker:main"
+rag-api = "news_ingest.ml.rag_cli:main"
+news-rag-mcp = "news_ingest.ml.mcp_server:main"
+rag-eval = "news_ingest.ml.evaluation:main"
+
+[tool.poetry]
+packages = [{ include = "news_ingest", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "8.3.4"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+news-ingest = "news_ingest.ingest:main"
+news-ingest-100 = "news_ingest.hundred_ingest:main"
+currents-ingest = "news_ingest.currents_ingest:main"
+gnews-ingest = "news_ingest.gnews_ingest:main"
+nytimes-ingest = "news_ingest.nytimes_ingest:main"
+newsdata-ingest = "news_ingest.newsdata_ingest:main"
+thenewsapi-ingest = "news_ingest.thenewsapi_ingest:main"
+process-embeddings = "news_ingest.ml.embedding_worker:main"
+process-ner = "news_ingest.ml.ner_worker:main"
+rag-api = "news_ingest.ml.rag_cli:main"
+news-rag-mcp = "news_ingest.ml.mcp_server:main"
+rag-eval = "news_ingest.ml.evaluation:main"

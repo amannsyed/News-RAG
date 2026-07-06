@@ -1,0 +1,42 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+ui/.env.local
+ui/.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Node / Vite
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
+# Docker / local runtime
+postgres_data/
+hf_cache/
+*.sqlite
+*.db
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

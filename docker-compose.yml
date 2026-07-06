@@ -1,0 +1,143 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: news-rag-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-news_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-news_rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-news_rag_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  embedding-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.embedding
+    container_name: news-rag-embedding-worker
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      MODEL_DEVICE: ${MODEL_DEVICE:-cuda}
+      EMBEDDING_DTYPE: ${EMBEDDING_DTYPE:-bfloat16}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-google/embeddinggemma-300m}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-news_rag}:${POSTGRES_PASSWORD:-news_rag_password}@postgres:5432/${POSTGRES_DB:-news_rag}
+      EMBEDDING_SERVICE_URL: http://embedding-worker:8001
+    ports:
+      - "${EMBEDDING_SERVICE_PORT:-8001}:8001"
+    volumes:
+      - hf_cache:/models
+    gpus: all
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  ner-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ner
+    container_name: news-rag-ner-worker
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      MODEL_DEVICE: ${MODEL_DEVICE:-cuda}
+      NER_MODEL_NAME: ${NER_MODEL_NAME:-urchade/gliner_multi-v2.1}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-news_rag}:${POSTGRES_PASSWORD:-news_rag_password}@postgres:5432/${POSTGRES_DB:-news_rag}
+      NER_SERVICE_URL: http://localhost:8002
+      EMBEDDING_SERVICE_URL: http://embedding-worker:8001
+    ports:
+      - "${NER_SERVICE_PORT:-8002}:8002"
+    volumes:
+      - hf_cache:/models
+    gpus: all
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  rag-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.rag-api
+    container_name: news-rag-api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-news_rag}:${POSTGRES_PASSWORD:-news_rag_password}@postgres:5432/${POSTGRES_DB:-news_rag}
+      EMBEDDING_SERVICE_URL: http://embedding-worker:8001
+      RAG_API_TOKEN: ${RAG_API_TOKEN:-}
+      RAG_RATE_LIMIT_PER_MINUTE: ${RAG_RATE_LIMIT_PER_MINUTE:-60}
+      RAG_RATE_LIMIT_BURST: ${RAG_RATE_LIMIT_BURST:-10}
+      RAG_CACHE_TTL_SECONDS: ${RAG_CACHE_TTL_SECONDS:-3600}
+      RAG_SEMANTIC_CACHE_THRESHOLD: ${RAG_SEMANTIC_CACHE_THRESHOLD:-0.95}
+      RAG_VECTOR_WEIGHT: ${RAG_VECTOR_WEIGHT:-0.6}
+      RAG_FULL_TEXT_WEIGHT: ${RAG_FULL_TEXT_WEIGHT:-0.2}
+      RAG_ENTITY_WEIGHT: ${RAG_ENTITY_WEIGHT:-0.2}
+      VERTEX_PROJECT_ID: ${VERTEX_PROJECT_ID:-${GOOGLE_CLOUD_PROJECT:-}}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-${VERTEX_PROJECT_ID:-}}
+      VERTEX_LOCATION: ${VERTEX_LOCATION:-global}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-4-5@20251001}
+      CLAUDE_MAX_TOKENS: ${CLAUDE_MAX_TOKENS:-1200}
+      CLAUDE_TEMPERATURE: ${CLAUDE_TEMPERATURE:-0.2}
+      CLAUDE_THINKING_LOW_TOKENS: ${CLAUDE_THINKING_LOW_TOKENS:-512}
+      CLAUDE_THINKING_MEDIUM_TOKENS: ${CLAUDE_THINKING_MEDIUM_TOKENS:-1024}
+      CLAUDE_THINKING_MAX_TOKENS: ${CLAUDE_THINKING_MAX_TOKENS:-2048}
+      CHAT_PROVIDER: ${CHAT_PROVIDER:-}
+      AWS_BEDROCK_REGION: ${AWS_BEDROCK_REGION:-${AWS_REGION:-us-east-1}}
+      AWS_REGION: ${AWS_REGION:-${AWS_BEDROCK_REGION:-us-east-1}}
+      AWS_BEDROCK_MODEL_ID: ${AWS_BEDROCK_MODEL_ID:-global.anthropic.claude-haiku-4-5-20251001-v1:0}
+      AWS_BEDROCK_KEY: ${AWS_BEDROCK_KEY:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-bing_news}
+      WEB_SEARCH_TTL_SECONDS: ${WEB_SEARCH_TTL_SECONDS:-21600}
+      WEB_SEARCH_TIMEOUT_SECONDS: ${WEB_SEARCH_TIMEOUT_SECONDS:-15}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS_JSON: ${GOOGLE_APPLICATION_CREDENTIALS_JSON:-}
+      VERTEX_CREDENTIALS_JSON: ${VERTEX_CREDENTIALS_JSON:-}
+      GOOGLE_VERTEX_AI_KEY: ${GOOGLE_VERTEX_AI_KEY:-}
+    ports:
+      - "${RAG_API_PORT:-8003}:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      embedding-worker:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  news-rag-mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp
+    container_name: news-rag-mcp
+    environment:
+      MCP_RAG_API_URL: http://rag-api:8003
+      MCP_RAG_API_TOKEN: ${RAG_API_TOKEN:-}
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8004
+      MCP_PATH: /mcp
+    ports:
+      - "${MCP_PORT:-8004}:8004"
+    depends_on:
+      rag-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8004), timeout=5).close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  postgres_data:
+  hf_cache:

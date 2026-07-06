@@ -1,0 +1,11 @@
+services:
+  embedding-worker:
+    environment:
+      MODEL_DEVICE: cuda
+      EMBEDDING_DTYPE: bfloat16
+    gpus: all
+
+  ner-worker:
+    environment:
+      MODEL_DEVICE: cuda
+    gpus: all

@@ -1,0 +1,15 @@
+FROM pytorch/pytorch:2.7.1-cuda12.6-cudnn9-runtime
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    HF_HOME=/models/huggingface \
+    TRANSFORMERS_CACHE=/models/huggingface \
+    SENTENCE_TRANSFORMERS_HOME=/models/sentence-transformers
+
+COPY docker/embedding-requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY src /app/src
+ENV PYTHONPATH=/app/src
+EXPOSE 8001
+CMD ["uvicorn", "news_ingest.ml.embedding_service:app", "--host", "0.0.0.0", "--port", "8001"]
