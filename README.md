@@ -129,6 +129,27 @@ Start all existing services again with GPU override:
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 ```
 
+### Docker Memory Guardrails
+
+The GPU model containers use hard memory caps so Python/PyTorch allocator growth cannot starve the host desktop. Defaults keep a buffer above normal local usage:
+
+- `embedding-worker`: `EMBEDDING_MEMORY_LIMIT=3g`, `EMBEDDING_MEMORY_SWAP_LIMIT=3g`
+- `ner-worker`: `NER_MEMORY_LIMIT=3g`, `NER_MEMORY_SWAP_LIMIT=3g`
+
+Swap is set equal to memory by default. That makes a runaway container fail cleanly instead of pushing the host into swap pressure. The services also set `MALLOC_ARENA_MAX=2` and `MALLOC_TRIM_THRESHOLD_=100000` to reduce allocator memory retention. Increase the limits in `.env` if your model load requires more headroom.
+
+Apply changed limits to already-running containers:
+
+```bash
+docker compose up -d --force-recreate embedding-worker ner-worker
+```
+
+Check live container memory:
+
+```bash
+docker stats news-rag-embedding-worker news-rag-ner-worker
+```
+
 ## 3. News Ingestion Commands
 
 Run each provider separately so quota and errors are easy to control. Start with small `--max-calls` values, then increase after a successful run.

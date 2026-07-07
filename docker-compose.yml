@@ -21,7 +21,11 @@ services:
       context: .
       dockerfile: docker/Dockerfile.embedding
     container_name: news-rag-embedding-worker
+    mem_limit: ${EMBEDDING_MEMORY_LIMIT:-3g}
+    memswap_limit: ${EMBEDDING_MEMORY_SWAP_LIMIT:-3g}
     environment:
+      MALLOC_ARENA_MAX: ${MALLOC_ARENA_MAX:-2}
+      MALLOC_TRIM_THRESHOLD_: ${MALLOC_TRIM_THRESHOLD_:-100000}
       HF_TOKEN: ${HF_TOKEN:-}
       MODEL_DEVICE: ${MODEL_DEVICE:-cuda}
       EMBEDDING_DTYPE: ${EMBEDDING_DTYPE:-bfloat16}
@@ -44,7 +48,11 @@ services:
       context: .
       dockerfile: docker/Dockerfile.ner
     container_name: news-rag-ner-worker
+    mem_limit: ${NER_MEMORY_LIMIT:-3g}
+    memswap_limit: ${NER_MEMORY_SWAP_LIMIT:-3g}
     environment:
+      MALLOC_ARENA_MAX: ${MALLOC_ARENA_MAX:-2}
+      MALLOC_TRIM_THRESHOLD_: ${MALLOC_TRIM_THRESHOLD_:-100000}
       HF_TOKEN: ${HF_TOKEN:-}
       MODEL_DEVICE: ${MODEL_DEVICE:-cuda}
       NER_MODEL_NAME: ${NER_MODEL_NAME:-urchade/gliner_multi-v2.1}
